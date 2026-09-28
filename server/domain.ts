@@ -18,7 +18,7 @@ export const accountSchema = z.object({
   fallbackEveryday:z.boolean().default(true), dailyCalls:z.number().int().min(0).max(500).default(12),
   graceMinutes:z.number().int().min(1).max(120).default(30),
 });
-export type Account = z.infer<typeof accountSchema> & {id:string; createdAt:string; threadsId?:string; username?:string; token?:string; expiresAt?:string};
+export type Account = z.infer<typeof accountSchema> & {id:string; createdAt:string; profileId?:'GEOM'|'KYU'; threadsId?:string; username?:string; token?:string; expiresAt?:string};
 export const topicSchema=z.object({accountId:z.string(),title:z.string().min(1).max(200),source:z.string().max(2000).default(''),evidence:z.string().max(10000).default(''),verified:z.boolean().default(false),expiresAt:z.string().default(''),active:z.boolean().default(true),priority:z.number().int().min(1).max(10).default(1)});
 export type Topic=z.infer<typeof topicSchema>&{id:string;uses:number;lastUsed?:string};
 export const productSchema=z.object({accountId:z.string(),name:z.string().min(1).max(200),program:z.string().min(1).max(200),url:z.string().url(),source:z.string().url(),features:z.string().min(1).max(10000),disclosure:z.string().min(5).max(300),prefix:z.string().min(2).max(200).default('[광고]'),policyUrl:z.string().url(),verified:z.boolean().default(false),verifiedAt:z.string().min(1),validUntil:z.string().min(1),active:z.boolean().default(true),mediaUrl:z.string().default(''),mediaType:z.enum(['TEXT','IMAGE','VIDEO']).default('TEXT'),mediaRights:z.string().max(2000).default(''),alt:z.string().max(1000).default('')});
