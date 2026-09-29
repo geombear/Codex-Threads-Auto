@@ -22,6 +22,8 @@ export class Store {
  async remove(kind:string,key:string){await this.db.query('DELETE FROM records WHERE kind=$1 AND id=$2',[kind,key]);}
  async reserve(account:string,day:string,slot:number,post:string){return (await this.db.query('INSERT INTO slots VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING RETURNING post',[account,day,slot,post])).rows.length>0;}
  async reservePost(p:{id:string;accountId:string;date:string;slot:number}){return (await this.db.query("WITH inserted AS (INSERT INTO slots VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING RETURNING post) INSERT INTO records(kind,id,data) SELECT 'posts',post,$5::jsonb FROM inserted RETURNING id",[p.accountId,p.date,p.slot,p.id,JSON.stringify(p)])).rows.length>0;}
+ // 글과 예약 슬롯을 한 문장으로 함께 지워, 슬롯만 남아 날짜가 막히거나 글만 남아 중복 생성되는 일을 막는다.
+ async removePost(postId:string){const removed=(await this.db.query("WITH d AS (DELETE FROM records WHERE kind='posts' AND id=$1 RETURNING id) DELETE FROM slots WHERE post IN (SELECT id FROM d) RETURNING post",[postId])).rows.length>0;await this.db.query("DELETE FROM records WHERE kind='versions' AND data->>'postId'=$1",[postId]);return removed;}
  async lock(name:string,owner:string,ms=120000){return (await this.db.query('INSERT INTO locks VALUES($1,$2,$3) ON CONFLICT(name) DO UPDATE SET owner=excluded.owner,expires=excluded.expires WHERE locks.expires < $4 RETURNING owner',[name,owner,Date.now()+ms,Date.now()])).rows.length>0;}
  async owns(name:string,owner:string){return (await this.db.query('SELECT owner FROM locks WHERE name=$1 AND owner=$2 AND expires>$3',[name,owner,Date.now()])).rows.length>0;}
  async unlock(name:string,owner:string){await this.db.query('DELETE FROM locks WHERE name=$1 AND owner=$2',[name,owner]);}

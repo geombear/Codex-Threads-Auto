@@ -8,6 +8,10 @@ set "KILLED=0"
 
 echo 포트 %PORT% 서버를 끕니다...
 
+rem 서버상시실행.bat 가 다시 켜지 않도록 중지 요청을 남깁니다.
+if not exist "data\" mkdir "data"
+echo stop> "data\stop-request"
+
 taskkill /FI "WINDOWTITLE eq %WIN%" /T /F >nul 2>&1
 if not errorlevel 1 set "KILLED=1"
 

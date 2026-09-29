@@ -5,3 +5,33 @@
 h1,h2,h3,p{word-break:keep-all;overflow-wrap:break-word}.login-art h1{font-size:clamp(1.7rem,3vw,2.65rem)}@media(max-width:1000px){.login-art{padding:45px 9%}.login-form{padding:40px}.wordmark{margin-bottom:60px}}
 
 .profile-picker{display:flex;gap:14px;margin:25px 0}.profile-picker button{flex:1;flex-direction:column;padding:22px 12px;border:2px solid #e5eaf4;gap:12px;font-size:1rem}.profile-picker button.selected{border-color:#4165e8;background:#eef3ff;color:#4165e8}.profile-label{color:#4165e8;font-size:.875rem;letter-spacing:.06em}.login-form input[name=pin]{font-size:1.35rem;letter-spacing:.35em;text-align:center}@media(max-width:760px){.header-right{gap:8px;flex-wrap:wrap}.mode-label{display:none}.login-form h2{font-size:1.35rem}}
+
+/* 콘텐츠 검토: 간단히 보기 목록 */
+.toolbar-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end}
+.segmented{display:inline-flex;border:1px solid #dce2ed;border-radius:8px;overflow:hidden;background:#fff}
+.segmented button{border:0;border-radius:0;background:transparent;padding:8px 12px;font-size:.78rem;color:#7b89a1}
+.segmented button.active{background:#eef3ff;color:#496ce0}
+.status-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:-6px 0 16px}
+.status-tabs button{padding:6px 12px;border-radius:999px;font-size:.78rem;color:#62748f;border-color:#e3e8f1}
+.status-tabs button b{font-size:.7rem;color:#8c99af;font-weight:600}
+.status-tabs button.active{background:#36415b;border-color:#36415b;color:#fff}
+.status-tabs button.active b{color:#c9d3e6}
+.post-list{background:#fff;border:1px solid #e1e7f1;border-radius:12px;overflow:hidden}
+.list-date{padding:9px 18px;font-size:.72rem;font-weight:700;color:#8190aa;background:#f7f9fc;border-bottom:1px solid #edf0f5}
+.post-row{display:flex;align-items:center;border-bottom:1px solid #edf0f5}
+.post-list>.post-row:last-child,.post-list>.row-detail:last-child{border-bottom:0}
+.row-main{flex:1;min-width:0;display:flex;align-items:center;justify-content:flex-start;gap:14px;border:0;border-radius:0;background:transparent;padding:12px 6px 12px 18px;text-align:left;font-weight:400;font-size:.84rem}
+.row-main:hover{background:#fafbfd}
+.row-time{font-variant-numeric:tabular-nums;font-weight:600;color:#62748f;width:44px;flex-shrink:0}
+.row-account{color:#8190aa;font-size:.76rem;width:84px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row-text{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#36415b}
+.row-text.muted{color:#a0acbf}
+.row-main .badge{margin:0}
+.chev{color:#a8b3c5;flex-shrink:0;transition:transform .15s}
+.post-row.open .chev{transform:rotate(180deg)}
+.icon-button{border:0;background:transparent;color:#a8b3c5;padding:10px 16px 10px 8px}
+.icon-button:hover{color:#c0473c}
+.row-detail{padding:14px 18px 18px;background:#f7f9fc;border-bottom:1px solid #edf0f5}
+.row-detail .post-card{padding:20px}
+.text-button.danger{color:#c0473c}
+@media(max-width:760px){.toolbar{flex-wrap:wrap}.toolbar-actions{justify-content:flex-start}.row-account{display:none}.row-main{gap:10px;padding-left:12px}.row-detail{padding:10px}}

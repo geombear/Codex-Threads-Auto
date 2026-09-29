@@ -4,5 +4,6 @@ data/
 .env
 backups/
 *.log
+logs/
 .npm-cache/
 test-results/

@@ -1,0 +1,7 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {connect,Store} from '../server/store.js';
+import {id,stamp,Post,canDeletePost} from '../server/domain.js';
+const post=(over:Partial<Post>={}):Post=>({id:id(),accountId:'acc',date:'2026-09-29',slot:0,scheduledAt:stamp(),kind:'everyday',body:'본문',replies:[],evidence:[],status:'cancelled',issues:[],version:1,steps:[],createdAt:stamp(),updatedAt:stamp(),provider:'test',simulated:true,...over});
+test('삭제하면 글·버전 기록과 슬롯이 함께 사라져 같은 슬롯에 다시 생성할 수 있다',async()=>{const store=new Store(await connect(true));try{const p=post();assert.ok(await store.reservePost(p));await store.put('versions',id(),{postId:p.id,version:1});assert.equal(await store.reservePost(post()),false);await store.removePost(p.id);assert.equal(await store.get('posts',p.id),undefined);assert.equal((await store.list<any>('versions')).length,0);assert.ok(await store.reservePost(post()));}finally{await store.db.close();}});
+test('게시 이력·예약·생성 중인 글은 삭제 대상이 아니다',()=>{assert.ok(canDeletePost(post()));assert.ok(canDeletePost(post({status:'review'})));assert.ok(canDeletePost(post({status:'held',body:'',error:'생성 실패'})));assert.equal(canDeletePost(post({status:'scheduled'})),false);assert.equal(canDeletePost(post({status:'complete'})),false);assert.equal(canDeletePost(post({status:'held',steps:[{key:'b',text:'',postId:'1',status:'complete',attempts:1}]})),false);assert.equal(canDeletePost(post({status:'held',body:'',error:undefined})),false);});

@@ -8,7 +8,7 @@ export const digest = (x: unknown) => createHash('sha256').update(JSON.stringify
 export const accountSchema = z.object({
   name:z.string().min(1).max(80), theme:z.string().max(2000).default('생활 속 작은 관찰'),
   audience:z.string().max(1000).default('일상을 편하게 만들고 싶은 사람'),
-  tone:z.string().max(3000).default('친구에게 이야기하듯 자연스러운 존댓말'),
+  tone:z.string().max(3000).default('친구에게 말하듯 편한 반말'),
   facts:z.string().max(10000).default(''), banned:z.string().max(2000).default('무조건,역대급,최저가,품절 임박'),
   timezone:z.string().refine(v=>DateTime.now().setZone(v).isValid,'시간대를 확인하세요.').default('Asia/Seoul'),
   times:z.array(z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)).length(3).refine(v=>new Set(v).size===3).default(['08:00','12:30','21:30']),
@@ -26,6 +26,9 @@ export type Product=z.infer<typeof productSchema>&{id:string};
 export type Status='review'|'blocked'|'scheduled'|'publishing'|'partial'|'complete'|'uncertain'|'held'|'cancelled'|'skipped';
 export type Step={key:string; text:string;containerId?:string;postId?:string;permalink?:string;status:'pending'|'creating'|'ready'|'sending'|'complete'|'uncertain';attempts:number};
 export type Post={id:string;accountId:string;date:string;slot:number;scheduledAt:string;kind:'everyday'|'affiliate';body:string;replies:string[];topicId?:string;product?:Product;brief?:Record<string,string>;evidence:string[];status:Status;issues:string[];version:number;approvedHash?:string;steps:Step[];createdAt:string;updatedAt:string;provider:string;simulated:boolean;nextAttempt?:string;error?:string};
+// 삭제 가능: 게시 전 단계의 글. 생성 중인 글(보류·본문 없음·오류 없음)은 저장 도중이라 제외한다.
+export const deletableStatuses=['review','blocked','held','cancelled','skipped'];
+export function canDeletePost(p:Pick<Post,'status'|'steps'|'body'|'error'>){return deletableStatuses.includes(p.status)&&!p.steps.some(s=>s.postId||['creating','sending','uncertain'].includes(s.status))&&!(p.status==='held'&&!p.body&&!p.error);}
 export const settingsSchema=z.object({geminiModel:z.string().max(100).default(''),openaiModel:z.string().max(100).default(''),fallback:z.boolean().default(false),dailyCalls:z.number().int().min(0).max(2000).default(30),paidAllowed:z.boolean().default(false),maxCallUsd:z.number().min(0).max(100).default(0),monthlyUsd:z.number().min(0).max(1000).default(0),stopped:z.boolean().default(true),appId:z.string().max(100).default('')});
 export type Settings=z.infer<typeof settingsSchema>&{geminiKey?:string;openaiKey?:string;appSecret?:string};
 export const defaultSettings=settingsSchema.parse({});
