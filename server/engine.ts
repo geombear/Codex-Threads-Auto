@@ -8,8 +8,13 @@ export class Engine{
  async settings():Promise<Settings>{return await this.store.get<Settings>('settings','main')||defaultSettings;}
  async savePost(p:Post){p.updatedAt=stamp();await this.store.put('posts',p.id,p);}
  async approve(p:Post){const a=await this.store.get<Account>('accounts',p.accountId);if(!a)throw Error('계정이 없습니다.');p.issues=validatePost(p,a,await this.store.list<Post>('posts'));if(p.issues.length){p.status='blocked';await this.savePost(p);throw Error(p.issues.join(' / '));}p.approvedHash=snapshot(p);p.status='scheduled';p.steps=[p.body,...p.replies].map((text,i)=>({key:`${p.id}:${p.version}:${i}`,text,status:'pending',attempts:0}));await this.savePost(p);await this.store.log('승인',`${p.id} 버전 ${p.version}`,a.id);}
- async reserveCall(a:Account,provider:string){const owner=id();if(!await this.store.lock('budget',owner))throw Error('다른 생성 작업을 처리 중입니다. 잠시 후 다시 시도하세요.');try{const s=await this.settings();const day=stamp().slice(0,10),month=day.slice(0,7);const usage=await this.store.list<any>('usage');if(usage.filter(x=>x.day===day).length>=s.dailyCalls||usage.filter(x=>x.day===day&&x.accountId===a.id).length>=a.dailyCalls)throw Error('오늘의 생성 호출 한도입니다. 기존 예약글은 유지됩니다.');const u={id:id(),day,accountId:a.id,provider,reservedUsd:0,at:stamp()};await this.store.put('usage',u.id,u);return u;}finally{await this.store.unlock('budget',owner);}}
+ async reserveCall(a:Account,provider:string,purpose:'generate'|'rewrite'|'test'='generate',retry=false){const owner=id();if(!await this.store.lock('budget',owner))throw Error('다른 생성 작업을 처리 중입니다. 잠시 후 다시 시도하세요.');try{const s=await this.settings();const day=stamp().slice(0,10),month=day.slice(0,7);const usage=await this.store.list<any>('usage');if(usage.filter(x=>x.day===day).length>=s.dailyCalls||usage.filter(x=>x.day===day&&x.accountId===a.id).length>=a.dailyCalls)throw Error('오늘의 생성 호출 한도입니다. 기존 예약글은 유지됩니다.');const u={id:id(),day,accountId:a.id,provider,purpose,kind:retry?'retry':purpose,reservedUsd:0,at:stamp()};await this.store.put('usage',u.id,u);return u;}finally{await this.store.unlock('budget',owner);}}
  async plan(a:Account,date:string,slots=[0,1,2]){
+  const owner=id(),key='generation:'+a.id;
+  if(!await this.store.lock(key,owner,1800000))throw Error('이 계정의 글을 생성 중입니다. 완료 후 다시 시도하세요.');
+  try{return await this.planSequential(a,date,slots);}finally{await this.store.unlock(key,owner);}
+ }
+ private async planSequential(a:Account,date:string,slots:number[]){
  const results:Post[]=[];for(const slot of slots){
   const p:Post={id:id(),accountId:a.id,date,slot,scheduledAt:slotTime(a,date,slot),kind:kindAt(a,date,slot),body:'',replies:[],evidence:[],status:'held',issues:[],version:1,steps:[],createdAt:stamp(),updatedAt:stamp(),provider:'',simulated:!a.live};
   if(!await this.store.reservePost(p))continue;
@@ -17,15 +22,55 @@ export class Engine{
    const topics=(await this.store.list<Topic>('topics')).filter(t=>t.accountId===a.id&&t.active&&(!t.expiresAt||Date.parse(t.expiresAt)>Date.now())).sort((x,y)=>x.uses/x.priority-y.uses/y.priority);const topic=topics[0];if(!topic)throw Error('사용 가능한 주제가 없습니다. 주제 보관함에 등록하세요.');p.topicId=topic.id;
    const posts=await this.store.list<Post>('posts');
    if(p.kind==='affiliate'){p.product=(await this.store.list<Product>('products')).find(pr=>pr.accountId===a.id&&pr.active&&pr.verified&&Date.parse(pr.validUntil)>Date.parse(p.scheduledAt)&&!posts.some(x=>x.id!==p.id&&x.product?.id===pr.id&&!['cancelled','skipped'].includes(x.status)&&Math.abs(Date.parse(p.scheduledAt)-Date.parse(x.scheduledAt))<a.productInterval*86400000));if(!p.product){if(a.fallbackEveryday)p.kind='everyday';else throw Error('검증된 상품이 부족합니다.');}}
-   const s=await this.settings();let generated;let errors:string[]=[];
-   for(const provider of (s.fallback?['gemini','openai']:['gemini']) as ('gemini'|'openai')[]){try{let u:Awaited<ReturnType<Engine['reserveCall']>>|undefined;generated=await generate(provider,s,a,topic,p.product,'',async()=>{u=await this.reserveCall(a,provider);});if(u)await this.store.put('usage',u.id,{...u,usage:generated.usage,model:generated.model});break;}catch(e){errors.push((e as Error).message);await this.store.log('생성 오류',`${provider}: ${(e as Error).message}`,a.id);}}
-   if(!generated)throw Error(errors.join(' / '));
-   p.body=(p.product?p.product.prefix+'\n':'')+generated.body;p.replies=p.product?[`${p.product.disclosure}\n${generated.reply}\n${p.product.url}`]:generated.reply?[generated.reply]:[];
-   // AI가 생성한 근거 문자열을 신뢰하지 않고 등록된 실제 근거만 저장한다.
-   p.evidence=[...(topic.verified&&topic.evidence?[topic.evidence]:[]),...(a.facts?[a.facts]:[]),...(p.product?[p.product.features]:[])];p.brief=generated.brief;p.provider=generated.provider+'/'+generated.model;
+   const generated=await this.createCopy(a,topic,p,posts);
+   this.applyCopy(p,generated,topic,a);
    p.issues=validatePost(p,a,posts);p.status=p.issues.length?'blocked':'review';topic.uses++;topic.lastUsed=stamp();await this.store.put('topics',topic.id,topic);await this.savePost(p);if(a.auto&&!p.issues.length)await this.approve(p);
   }catch(e){p.error=(e as Error).message;p.status='held';await this.savePost(p);}results.push(p);
  }return results;}
+ async createCopy(a:Account,topic:Topic,p:Post,posts:Post[],feedback='',purpose:'generate'|'rewrite'='generate'){
+  const s=await this.settings(),errors:string[]=[];let attempts=0;
+  const recent=posts.filter(x=>x.accountId===a.id&&x.body&&x.status!=='cancelled').sort((x,y)=>y.updatedAt.localeCompare(x.updatedAt)).slice(0,12);
+  for(const provider of (s.fallback?['gemini','openai']:['gemini']) as ('gemini'|'openai')[]){
+   try{let u:Awaited<ReturnType<Engine['reserveCall']>>|undefined;
+    const generated=await generate(provider,s,a,topic,p.product,feedback,async()=>{u=await this.reserveCall(a,provider,purpose,attempts++>0);},{store:this.store,recent,previousDraft:purpose==='rewrite'?p.body:''});
+    if(u)await this.store.put('usage',u.id,{...u,usage:generated.usage,model:generated.model});
+    return generated;
+   }catch(e){errors.push((e as Error).message);await this.store.log('생성 오류',provider+': '+(e as Error).message,a.id);}
+  }
+  throw Error(errors.join(' / '));
+ }
+ private applyCopy(p:Post,generated:Awaited<ReturnType<Engine['createCopy']>>,topic:Topic,a:Account){
+  p.body=(p.product?p.product.prefix+'\n':'')+generated.body;
+  p.replies=p.product?[`${p.product.disclosure}\n${generated.reply}\n${p.product.url}`]:generated.reply?[generated.reply]:[];
+  p.evidence=[...(topic.verified&&topic.evidence?[topic.evidence]:[]),...(a.facts?[a.facts]:[]),...(p.product?[p.product.features]:[])];
+  delete p.brief;p.writingStyle=generated.writingStyle;p.provider=generated.provider+'/'+generated.model;
+ }
+ async rewrite(postId:string,profileId:string,feedback=''){
+  const owner=id(),key='publish:'+postId;
+  if(!await this.store.lock(key,owner,600000))throw Error('이 글을 처리 중입니다. 완료 후 다시 시도하세요.');
+  let generationKey='';
+  try{
+   const p=await this.store.get<Post>('posts',postId);if(!p)throw Error('글이 없습니다.');
+   const a=await this.store.get<Account>('accounts',p.accountId);if(!a||a.profileId!==profileId)throw Error('선택한 프로필의 글만 다시 쓸 수 있습니다.');
+   if(!['review','blocked','held'].includes(p.status)||p.steps.some(s=>s.postId||s.containerId||['sending','creating','uncertain'].includes(s.status))||!p.body&&!p.error)throw Error('게시 전 검토·보류 글만 다시 쓸 수 있습니다. 예약된 글은 먼저 보류하세요.');
+   if((p.rewriteCount||0)>=5)throw Error('이 글의 AI 다시쓰기 한도(5회)에 도달했습니다.');
+   const lock='generation:'+a.id;if(!await this.store.lock(lock,owner,600000))throw Error('이 계정의 글을 생성 중입니다. 완료 후 다시 시도하세요.');generationKey=lock;
+   const topic=p.topicId?await this.store.get<Topic>('topics',p.topicId):undefined;
+   if(!topic||topic.accountId!==a.id||!topic.active||topic.expiresAt&&Date.parse(topic.expiresAt)<=Date.now())throw Error('유효한 원래 주제가 필요합니다. 주제 보관함에서 확인하세요.');
+   if(p.product){const product=await this.store.get<Product>('products',p.product.id);if(!product||product.accountId!==a.id||!product.active||!product.verified||Date.parse(product.validUntil)<Math.max(Date.now(),Date.parse(p.scheduledAt)))throw Error('상품 근거 또는 유효기간을 확인하세요.');p.product=product;}
+   const posts=await this.store.list<Post>('posts');
+   const generated=await this.createCopy(a,topic,p,posts,feedback,'rewrite');
+   if(!await this.store.owns(key,owner)||!await this.store.owns(generationKey,owner))throw Error('작업 잠금이 만료되었습니다. 기존 글을 유지합니다.');
+   const updated={...p};this.applyCopy(updated,generated,topic,a);
+   // Reject a near-identical rewrite as well as duplicates of other posts.
+   updated.issues=validatePost(updated,a,[...posts.filter(x=>x.id!==p.id),{...p,id:'previous:'+p.id}]);
+   if(updated.issues.some(i=>i.includes('너무 비슷')))throw Error('이전 글과 너무 비슷하게 생성되어 기존 글을 유지했습니다. 다른 구성으로 요청해 주세요.');
+   await this.store.put('versions',id(),{postId:p.id,version:p.version,body:p.body,replies:p.replies,writingStyle:p.writingStyle,at:stamp()});
+   updated.version++;updated.rewriteCount=(p.rewriteCount||0)+1;updated.approvedHash=undefined;updated.steps=[];updated.nextAttempt=undefined;updated.error=undefined;
+   updated.status=updated.issues.length?'blocked':'review';await this.savePost(updated);
+   await this.store.log('AI 다시쓰기',p.id+' / '+updated.writingStyle,a.id);return updated;
+  }finally{if(generationKey)await this.store.unlock(generationKey,owner);await this.store.unlock(key,owner);}
+ }
  async guard(a:Account,owner:string,p:Post){if(!await this.store.owns('publish:'+p.id,owner))throw Error('작업 잠금이 만료되어 확인이 필요합니다.');const s=await this.settings(),fresh=await this.store.get<Account>('accounts',a.id);if(s.stopped||!fresh||fresh.paused||fresh.live!==!p.simulated)throw Error('전체 또는 계정 발행이 중지되었습니다.');if(a.live&&(process.env.ALLOW_LIVE_PUBLISH!=='true'||!fresh.token||!fresh.threadsId))throw Error('실제 게시 허용과 계정 연결이 필요합니다.');return fresh;}
  async publish(postId:string,now=new Date()){
  const owner=id(),name='publish:'+postId;if(!await this.store.lock(name,owner,300000))return;

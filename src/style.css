@@ -35,3 +35,22 @@ h1,h2,h3,p{word-break:keep-all;overflow-wrap:break-word}.login-art h1{font-size:
 .row-detail .post-card{padding:20px}
 .text-button.danger{color:#c0473c}
 @media(max-width:760px){.toolbar{flex-wrap:wrap}.toolbar-actions{justify-content:flex-start}.row-account{display:none}.row-main{gap:10px;padding-left:12px}.row-detail{padding:10px}}
+
+/* G-Threads Studio brand */
+.brand{display:flex;align-items:center;justify-content:flex-start;gap:11px;width:100%;border:0;background:transparent;border-radius:10px;padding:2px 10px 38px;color:#e2c28f;text-align:left}
+.brand:hover{border:0;background:transparent}
+.brand img{width:53px;height:47px;object-fit:contain;flex:0 0 auto}
+.brand>.brand-name{display:flex;flex-direction:column;width:105px;gap:3px;font-size:inherit;color:inherit}
+.brand-line{display:flex;justify-content:space-between;width:100%;color:#ead3aa;font-size:1.18rem;line-height:1;font-weight:700;text-shadow:0 1px 8px #d4a85f33}
+.brand-studio{color:#b6a485;font-size:.64rem;font-weight:600;letter-spacing:.02em}
+@media(max-width:1150px) and (min-width:761px){.brand{padding-inline:7px}.brand img{width:47px;height:42px}.brand>.brand-name{width:96px}}
+@media(max-width:760px){.brand{width:auto;padding:0 8px 15px}.brand img{width:42px;height:37px}.brand>.brand-name{display:flex;width:90px;font-size:inherit}.brand-line{display:flex;font-size:1rem}.brand-studio{display:flex;font-size:.56rem}}
+
+.connection-result{margin:10px 0 0;padding:11px 13px;border-radius:8px;font-size:.78rem;line-height:1.6}
+.connection-result.testing{background:#f3f6fb;color:#667590}
+.connection-result.success{background:#e9f7f2;color:#18745f;border:1px solid #caecdf}
+.connection-result.error{background:#fff0ee;color:#a95149;border:1px solid #f1d7d3}
+.connection-result strong{margin-right:3px}
+.fixed-rule{display:flex;flex-direction:column;gap:7px;padding:13px 14px;border:1px solid #e2e7ef;border-radius:8px;background:#f7f9fc;color:#667590;font-size:.82rem;line-height:1.65}
+.fixed-rule strong{color:#46546d;font-size:.78rem}
+.rewrite-original{white-space:pre-wrap;line-height:1.8;padding:16px;border-radius:8px;background:#f5f7fb;font-size:.85rem;color:#667590}

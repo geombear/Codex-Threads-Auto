@@ -15,7 +15,7 @@ export const accountSchema = z.object({
   everydayRatio:z.number().int().min(1).max(20).default(2), affiliateRatio:z.number().int().min(0).max(10).default(1),
   warmupDays:z.number().int().min(0).max(90).default(0), productInterval:z.number().int().min(1).max(365).default(14),
   auto:z.boolean().default(false), paused:z.boolean().default(false), live:z.boolean().default(false),
-  fallbackEveryday:z.boolean().default(true), dailyCalls:z.number().int().min(0).max(500).default(12),
+  fallbackEveryday:z.boolean().default(true), dailyCalls:z.number().int().min(0).max(500).default(50),
   graceMinutes:z.number().int().min(1).max(120).default(30),
 });
 export type Account = z.infer<typeof accountSchema> & {id:string; createdAt:string; profileId?:'GEOM'|'KYU'; threadsId?:string; username?:string; token?:string; expiresAt?:string};
@@ -25,11 +25,11 @@ export const productSchema=z.object({accountId:z.string(),name:z.string().min(1)
 export type Product=z.infer<typeof productSchema>&{id:string};
 export type Status='review'|'blocked'|'scheduled'|'publishing'|'partial'|'complete'|'uncertain'|'held'|'cancelled'|'skipped';
 export type Step={key:string; text:string;containerId?:string;postId?:string;permalink?:string;status:'pending'|'creating'|'ready'|'sending'|'complete'|'uncertain';attempts:number};
-export type Post={id:string;accountId:string;date:string;slot:number;scheduledAt:string;kind:'everyday'|'affiliate';body:string;replies:string[];topicId?:string;product?:Product;brief?:Record<string,string>;evidence:string[];status:Status;issues:string[];version:number;approvedHash?:string;steps:Step[];createdAt:string;updatedAt:string;provider:string;simulated:boolean;nextAttempt?:string;error?:string};
+export type Post={id:string;accountId:string;date:string;slot:number;scheduledAt:string;kind:'everyday'|'affiliate';body:string;replies:string[];topicId?:string;product?:Product;brief?:Record<string,string>;writingStyle?:string;rewriteCount?:number;evidence:string[];status:Status;issues:string[];version:number;approvedHash?:string;steps:Step[];createdAt:string;updatedAt:string;provider:string;simulated:boolean;nextAttempt?:string;error?:string};
 // 삭제 가능: 게시 전 단계의 글. 생성 중인 글(보류·본문 없음·오류 없음)은 저장 도중이라 제외한다.
 export const deletableStatuses=['review','blocked','held','cancelled','skipped'];
 export function canDeletePost(p:Pick<Post,'status'|'steps'|'body'|'error'>){return deletableStatuses.includes(p.status)&&!p.steps.some(s=>s.postId||['creating','sending','uncertain'].includes(s.status))&&!(p.status==='held'&&!p.body&&!p.error);}
-export const settingsSchema=z.object({geminiModel:z.string().max(100).default(''),openaiModel:z.string().max(100).default(''),fallback:z.boolean().default(false),dailyCalls:z.number().int().min(0).max(2000).default(30),paidAllowed:z.boolean().default(false),maxCallUsd:z.number().min(0).max(100).default(0),monthlyUsd:z.number().min(0).max(1000).default(0),stopped:z.boolean().default(true),appId:z.string().max(100).default('')});
+export const settingsSchema=z.object({geminiModel:z.string().max(100).default(''),openaiModel:z.string().max(100).default(''),fallback:z.boolean().default(false),dailyCalls:z.number().int().min(0).max(2000).default(300),paidAllowed:z.boolean().default(false),maxCallUsd:z.number().min(0).max(100).default(0),monthlyUsd:z.number().min(0).max(1000).default(0),stopped:z.boolean().default(true),appId:z.string().max(100).default('')});
 export type Settings=z.infer<typeof settingsSchema>&{geminiKey?:string;openaiKey?:string;appSecret?:string};
 export const defaultSettings=settingsSchema.parse({});
 export const starterTopics=['아침 준비를 가볍게','책상 위 정리','잠깐 쉬는 시간','출근길의 작은 관찰','주말의 느린 시작','장을 보기 전 확인','물건을 고르는 기준','디지털 파일 정리','집중하기 좋은 환경','저녁 루틴','비 오는 날의 준비','가방 속 꼭 필요한 것','약속 전 여유','혼자 보내는 시간','작은 공간 활용','메모하는 습관','산책하며 보는 풍경','필요한 것과 갖고 싶은 것','하루를 마무리하는 질문','다음 주를 위한 준비'];
